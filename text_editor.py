@@ -11,8 +11,8 @@ class TextEditor():
         self.root.title('Labeled Text Editor')
         
         # window size
-        window_width = 300
-        window_height = 200
+        window_width = 900
+        window_height = 500
 
         # centering window
         screen_width = root.winfo_screenwidth()
@@ -45,25 +45,25 @@ class TextEditor():
         file_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label='File', menu=file_menu)
         # save existing file
-        file_menu.add_command(label='Save', command=self.save_file)
+        file_menu.add_command(label='Save', accelerator= "Ctrl + S", command=self.save_file)
         file_menu.add_separator()
         # save new file
-        file_menu.add_command(label='Save As', command=self.save_as_file)
+        file_menu.add_command(label='Save As', accelerator= "Ctrl + Shift + S", command=self.save_as_file)
         file_menu.add_separator()
         # load option
-        file_menu.add_command(label = 'Open File', command=self.load_file)
+        file_menu.add_command(label = 'Open File', accelerator= "Ctrl + O", command=self.load_file)
         file_menu.add_separator()
         # open new tab
-        file_menu.add_command(label='New tab', command=self.new_tab)
+        file_menu.add_command(label='New tab', accelerator= "Ctrl + N", command=self.new_tab)
         file_menu.add_separator()
         # close tab
-        file_menu.add_command(label='Close Tab', command= self.close_tab)
+        file_menu.add_command(label='Close Tab', accelerator= "Ctrl + W", command= self.close_tab)
         file_menu.add_separator()
         # new window
-        file_menu.add_command(label='New Window', command=self.new_window)
+        file_menu.add_command(label='New Window', accelerator= "Ctrl + Shift + N", command=self.new_window)
         file_menu.add_separator()
         # close window
-        file_menu.add_command(label='Close Window', command=self.close_window)
+        file_menu.add_command(label='Close Window', accelerator= "Ctrl + Shift + W", command=self.close_window)
         file_menu.add_separator()
         # exit all
         file_menu.add_command(label='Exit all', command=self.exit_all)
@@ -74,10 +74,24 @@ class TextEditor():
         self.menu.add_cascade(label = "Edit", menu= edit_menu)
 
         # undo option
-        edit_menu.add_command(label='Undo', command=self.undo)
+        edit_menu.add_command(label='Undo', accelerator= "Ctrl + Z", command=self.undo)
         edit_menu.add_separator()
         # redo option
-        edit_menu.add_command(label='Redo', command=self.redo)
+        edit_menu.add_command(label='Redo', accelerator= "Ctrl + Y", command=self.redo)
+        edit_menu.add_separator()
+        # copy option
+        edit_menu.add_command(label='Copy', accelerator= "Ctrl + C", command=self.copy_text)
+        edit_menu.add_separator()
+        # paste option
+        edit_menu.add_command(label='Paste', accelerator= "Ctrl + V", command=self.paste_text)
+        edit_menu.add_separator()
+        # cut option
+        edit_menu.add_command(label='Cut', accelerator= "Ctrl + X", command=self.cut_text)
+        edit_menu.add_separator()
+        # select all option
+        edit_menu.add_command(label='Select All', accelerator= "Ctrl + A", command=self.select_all)
+        edit_menu.add_separator()
+
 
         self.root.bind("<Control-o>", lambda event: self.load_file())
         self.root.bind("<Control-s>", lambda event: self.save_file())
@@ -309,6 +323,41 @@ class TextEditor():
             text.edit_redo()
         except tk.TclError:
             pass
+
+    def copy_text(self, event = None):
+        text = self.get_current_text()
+        try:
+            selected = text.selection_get()
+            self.root.clipboard_clear()
+            self.root.clipboard_append(selected)
+        except tk.TclError:
+            pass
+    
+    def paste_text(self, event = None):
+        text = self.get_current_text()
+        try:
+            clip = self.root.clipboard_get()
+            text.insert("insert", clip)
+        except tk.TclError:
+            pass
+
+    def cut_text(self, event = None):
+        text = self.get_current_text()
+        try:
+            selected = text.selection_get()
+            self.root.clipboard_clear()
+            self.root.clipboard_append(selected)
+            text.delete("sel.first", "sel.last")
+        except tk.TclError:
+            pass
+
+    def select_all(self, event = None):
+        text = self.get_current_text()
+        text.tag_add("sel", "1.0", "end -1c")
+        return "break"
+
+    
+
 
 
 root = tk.Tk()
