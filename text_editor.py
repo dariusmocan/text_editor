@@ -41,7 +41,7 @@ class TextEditor():
         self.menu = tk.Menu(root)
         self.root.config(menu = self.menu)
 
-        # the file menu of the file
+        # the FILE menu of the file
         file_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label='File', menu=file_menu)
         # save existing file
@@ -59,18 +59,38 @@ class TextEditor():
         # close tab
         file_menu.add_command(label='Close Tab', command= self.close_tab)
         file_menu.add_separator()
-        # exitting
-        file_menu.add_command(label='Exit', command=self.on_exit)
+        # new window
+        file_menu.add_command(label='New Window', command=self.new_window)
+        file_menu.add_separator()
+        # close window
+        file_menu.add_command(label='Close Window', command=self.close_window)
+        file_menu.add_separator()
+        # exit all
+        file_menu.add_command(label='Exit all', command=self.exit_all)
+
+
+        # the EDIT menu of the file
+        edit_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label = "Edit", menu= edit_menu)
+
+        # undo option
+        edit_menu.add_command(label='Undo', command=self.undo)
+        edit_menu.add_separator()
+        # redo option
+        edit_menu.add_command(label='Redo', command=self.redo)
 
         self.root.bind("<Control-o>", lambda event: self.load_file())
         self.root.bind("<Control-s>", lambda event: self.save_file())
         self.root.bind("<Control-Shift-S>", lambda event: self.save_as_file())
         self.root.bind("<Control-n>", lambda event: self.new_tab())
         self.root.bind("<Control-w>", lambda event: self.close_tab())
-        
+        self.root.bind("<Control-Shift-N>", lambda event: self.new_window())
+        self.root.bind("<Control-Shift-W>", lambda event: self.close_window())
+        self.root.bind("<Control-z>", self.undo)
+        self.root.bind("<Control-y>", self.redo)
 
         # exit protocol
-        self.root.protocol("WM_DELETE_WINDOW", self.on_exit)
+        self.root.protocol("WM_DELETE_WINDOW", self.close_window)
 
     def create_tab(self, title):
         # frame of scrollbar and text area
@@ -85,7 +105,7 @@ class TextEditor():
         scrollbar.pack(side='right', fill='y')
 
         # text area
-        text = tk.Text(frame, wrap='word', yscrollcommand=scrollbar.set)
+        text = tk.Text(frame, wrap='word', undo = True, yscrollcommand=scrollbar.set)
         text.pack(expand=True, fill='both')
         scrollbar.config(command=text.yview)
 
@@ -97,6 +117,8 @@ class TextEditor():
          # detect text changes
         text.bind("<<Modified>>", self.on_text_modified)
         text.bind("<Control-Right>", lambda event: self.move_end_word(event))
+        text.bind("<Control-BackSpace>", lambda event: self.delete_whole_word(event))
+        
 
         self.notebook.select(frame)
         return text
@@ -169,8 +191,33 @@ class TextEditor():
 
     def close_tab(self, event = None):
         current_frame = self.notebook.nametowidget(self.notebook.select())
-        self.notebook.forget(current_frame)
-        current_frame.destroy()
+
+        unsaved = [change for frame, change in self.changed.items() if change]
+
+        if unsaved:
+            answer = messagebox.askyesnocancel(
+                "Unsaved Changes On This Tab",
+                "Do you wish to save the changes?"
+            )
+
+            if answer:
+                self.save_file()
+                self.notebook.forget(current_frame)
+                current_frame.destroy()
+            elif answer == False:
+                self.notebook.forget(current_frame)
+                current_frame.destroy()
+            else:
+                return
+        else:
+            current_frame.destroy()
+
+    def new_window(self, event = None):
+        new_root =  tk.Toplevel(self.root)
+        TextEditor(new_root)
+
+    def exit_all(self, event = None):
+        tk._default_root.destroy()
 
     # adds the title the asterix: * if it was changed
     def on_text_modified(self, event):
@@ -192,9 +239,11 @@ class TextEditor():
             text.edit_modified(False)
 
 
-    def on_exit(self, event = None):
+    def close_window(self, event = None):
+        # check if any frame has changes
         unsaved = [change for frame, change in self.changed.items() if change]
 
+        # if they do, make a pop up asking if they want to save the changes or not
         if unsaved:
             answer = messagebox.askyesnocancel (
                 "Unsaved Changes",
@@ -225,6 +274,41 @@ class TextEditor():
             text.mark_set("insert", end_current)
 
         return "break"
+    
+    def delete_whole_word(self, event):
+        text = event.widget
+        current_insert = text.index("insert")
+        
+        # check if the index is at the beginning of the line
+        if current_insert == "1.0":
+            return "break"
+        
+        # we move the index to the left till it finds a character
+        start_index = current_insert
+        while start_index != "1.0" and text.get(f"{start_index} -1c").isspace():
+            start_index = text.index(f"{start_index} -1c")
+
+        # we set the start_index at the beginning of the word
+        start_index = text.index(f"{start_index} -1c wordstart")
+
+        # we delete the word
+        text.delete(start_index, current_insert)
+
+        return "break"
+    
+    def undo(self, event = None):
+        text = self.get_current_text()
+        try:
+            text.edit_undo()
+        except tk.TclError:
+            pass
+
+    def redo(self, event = None):
+        text = self.get_current_text()
+        try:
+            text.edit_redo()
+        except tk.TclError:
+            pass
 
 
 root = tk.Tk()
