@@ -88,6 +88,9 @@ class TextEditor():
         # cut option
         edit_menu.add_command(label='Cut', accelerator= "Ctrl + X", command=self.cut_text)
         edit_menu.add_separator()
+        # find option
+        edit_menu.add_command(label='Find', accelerator= "Ctrl + F", command=self.find_word)
+        edit_menu.add_separator()
         # select all option
         edit_menu.add_command(label='Select All', accelerator= "Ctrl + A", command=self.select_all)
         edit_menu.add_separator()
@@ -355,9 +358,56 @@ class TextEditor():
         text = self.get_current_text()
         text.tag_add("sel", "1.0", "end -1c")
         return "break"
-
     
+    def find_word(self, event = None):
+        FindWindow(self.root, self.get_current_text())
 
+
+class FindWindow():
+    def __init__(self, master, text_widget):
+        self.top = tk.Toplevel(master)
+        self.top.title("Find")
+        self.text = text_widget
+
+        screen_width = master.winfo_screenwidth()
+        screen_height = master.winfo_screenheight()
+        x = (screen_width // 2) 
+        y = 300
+
+
+        # print(screen_width, screen_height)
+        self.top.geometry(f"+{x}+{y}")
+
+
+        self.entry = tk.Entry(self.top)
+        self.entry.pack()
+
+        tk.Button(self.top, text = "Find Prev", command=self.find_prev).pack()
+        tk.Button(self.top, text = "Find Next", command=self.find_next).pack()
+
+    def find_next(self):
+        query = self.entry.get()
+        position = self.text.search(query, "insert", stopindex = "end")
+
+        if position:
+            end = f"{position} + {len(query)}c"
+            self.text.tag_remove("highlight", "1.0", "end")
+            self.text.tag_add("highlight", position, end)
+            self.text.tag_config("highlight", background="yellow")
+            self.text.mark_set("insert", end)
+            self.text.see(position)
+
+    def find_prev(self):
+        query = self.entry.get()
+        position = self.text.search(query, "insert", stopindex = "1.0", backwards = True)
+
+        if position:
+            end = f"{position} + {len(query)}c"
+            self.text.tag_remove("highlight", "1.0", "end")
+            self.text.tag_add("highlight", position, end)
+            self.text.tag_config("highlight", background="yellow")
+            self.text.mark_set("insert", position)
+            self.text.see(position)
 
 
 root = tk.Tk()
