@@ -1,11 +1,13 @@
 import tkinter as tk
 from tkinter import filedialog, colorchooser, ttk, messagebox
 from tkinter import *
+import tkinter.font as tkfont
 import numpy as np
 
 
 
 class TextEditor():
+    """The main class. Representing the window of the text editor with its functionalities"""
     def __init__(self, root):
         self.root = root
         self.root.title('Labeled Text Editor')
@@ -96,6 +98,15 @@ class TextEditor():
         edit_menu.add_separator()
 
 
+        # the CUSTOM menu of the file
+        custom_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Custom menu", menu=custom_menu)
+
+        # opening Custom Menu
+        custom_menu.add_command(label="Open custom window", command=self.custom)
+
+
+        # root function bindings
         self.root.bind("<Control-o>", lambda event: self.load_file())
         self.root.bind("<Control-s>", lambda event: self.save_file())
         self.root.bind("<Control-Shift-S>", lambda event: self.save_as_file())
@@ -110,6 +121,7 @@ class TextEditor():
         self.root.protocol("WM_DELETE_WINDOW", self.close_window)
 
     def create_tab(self, title):
+        """Initiating a tab"""
         # frame of scrollbar and text area
         frame = ttk.Frame(self.notebook, padding=10)
         frame.pack(expand=True, fill='both')
@@ -131,23 +143,26 @@ class TextEditor():
         self.file_paths[frame] = None
         self.changed[frame] = False
 
-         # detect text changes
+        # detect text changes
         text.bind("<<Modified>>", self.on_text_modified)
+        # other function bindings on text as Undo, Redo
         text.bind("<Control-Right>", lambda event: self.move_end_word(event))
         text.bind("<Control-BackSpace>", lambda event: self.delete_whole_word(event))
         
-
         self.notebook.select(frame)
         return text
         
     def get_current_text(self):
+        """Returns : the current text in our text area"""
         current_tab = self.notebook.nametowidget(self.notebook.select())
         return self.tabs[current_tab]
     
-    # overwritting and saving an existing file
     def save_file(self, event = None):
+        """Saving an existing file => overwritting it"""
+        # current tab : frame
         current_tab = self.notebook.nametowidget(self.notebook.select())
         current_text = self.get_current_text()
+        # content : all the text from beginning : '1.0' to end : 'tk.END'
         content = current_text.get(1.0, tk.END)
         path = self.file_paths.get(current_tab)
 
@@ -160,9 +175,9 @@ class TextEditor():
             self.notebook.tab(frm, text = label)
         else:
             self.save_as_file()
-    
-    # saving a new file
+  
     def save_as_file(self, event = None):
+        """Saving a new file non existing file | saving an existing file as another file"""
         text = self.get_current_text()
         current_tab = self.notebook.nametowidget(self.notebook.select())
         path = filedialog.asksaveasfilename(
@@ -170,10 +185,12 @@ class TextEditor():
             filetypes= [('Text File', '*.txt'), ('All files', '*.*')]
         )
         if path:
+            # content : the text from beginning to end
             content = text.get(1.0, tk.END)
             with open(file=path,mode="w", encoding="utf-8") as f:
                 f.write(content)
 
+            # updating the changed directory to no changes to this file after save, removing '*'
             self.changed[current_tab] = False
             label = self.notebook.tab(current_tab, "text").rstrip("*")
             self.notebook.tab(current_tab, text = label)
@@ -184,8 +201,8 @@ class TextEditor():
             # update the title
             self.notebook.tab(current_tab, text=path.split("/")[-1])
 
-    # opening an existing file
     def load_file(self, event = None):
+        """Loading a text file in our text editor"""
         text = self.get_current_text()
         path = filedialog.askopenfilename(
             defaultextension='.txt',
@@ -203,10 +220,12 @@ class TextEditor():
             self.notebook.tab(current_tab, text = path.split('/')[-1])
 
     def new_tab(self, event=None):
+        """Creating new tab in the window by using the funciton 'create_tab'"""
         self.tab_counter += 1
         self.create_tab(f"Untitled {self.tab_counter}")
 
     def close_tab(self, event = None):
+        """Closes one tab of the window, verifying if there are changes made"""
         current_frame = self.notebook.nametowidget(self.notebook.select())
 
         unsaved = [change for frame, change in self.changed.items() if change]
@@ -230,14 +249,17 @@ class TextEditor():
             current_frame.destroy()
 
     def new_window(self, event = None):
+        """Create new text editor window"""
         new_root =  tk.Toplevel(self.root)
         TextEditor(new_root)
 
     def exit_all(self, event = None):
+        """Closing all widows"""
         tk._default_root.destroy()
 
-    # adds the title the asterix: * if it was changed
     def on_text_modified(self, event):
+        """Function for monitoring text changes
+        if text has changed '(.edit_modified())' : title is appended an '*'"""
         if not self.root.winfo_exists(): 
             return
     
@@ -257,6 +279,7 @@ class TextEditor():
 
 
     def close_window(self, event = None):
+        """Closing window function"""
         # check if any frame has changes
         unsaved = [change for frame, change in self.changed.items() if change]
 
@@ -278,6 +301,7 @@ class TextEditor():
             self.root.destroy()
 
     def move_end_word(self, event):
+        """Control + Right : move cursor at the end of the current/next word"""
         text = event.widget
         current = text.index("insert")
         end_current = text.index("insert wordend")
@@ -292,7 +316,9 @@ class TextEditor():
 
         return "break"
     
+    
     def delete_whole_word(self, event):
+        """Control + Backspace : Deleting an entire word"""
         text = event.widget
         current_insert = text.index("insert")
         
@@ -314,6 +340,7 @@ class TextEditor():
         return "break"
     
     def undo(self, event = None):
+        """Undo function"""
         text = self.get_current_text()
         try:
             text.edit_undo()
@@ -321,6 +348,7 @@ class TextEditor():
             pass
 
     def redo(self, event = None):
+        """Redo function"""
         text = self.get_current_text()
         try:
             text.edit_redo()
@@ -328,6 +356,7 @@ class TextEditor():
             pass
 
     def copy_text(self, event = None):
+        """Copying selected text in clipboard"""
         text = self.get_current_text()
         try:
             selected = text.selection_get()
@@ -337,6 +366,7 @@ class TextEditor():
             pass
     
     def paste_text(self, event = None):
+        """Appending text from clipboard"""
         text = self.get_current_text()
         try:
             clip = self.root.clipboard_get()
@@ -345,6 +375,7 @@ class TextEditor():
             pass
 
     def cut_text(self, event = None):
+        """Deleting and storing in the clipboard text function"""
         text = self.get_current_text()
         try:
             selected = text.selection_get()
@@ -355,30 +386,37 @@ class TextEditor():
             pass
 
     def select_all(self, event = None):
+        """Selecting all text function"""
         text = self.get_current_text()
         text.tag_add("sel", "1.0", "end -1c")
         return "break"
     
     def find_word(self, event = None):
+        """Opening a window for finding a word"""
         FindWindow(self.root, self.get_current_text())
+
+    def custom(self, event = None):
+        """Opening a window for customising"""
+        CustomWindow(self.root, self.get_current_text())
 
 
 class FindWindow():
+    """Window for the find function"""
     def __init__(self, master, text_widget):
+        """Return an entry of which the text is then searched in the imported text 
+        widget using buttons for finding next and previous match"""
         self.top = tk.Toplevel(master)
         self.top.title("Find")
         self.text = text_widget
 
+        # setting window sizes and position
         screen_width = master.winfo_screenwidth()
         screen_height = master.winfo_screenheight()
         x = (screen_width // 2) 
         y = 300
-
-
-        # print(screen_width, screen_height)
         self.top.geometry(f"+{x}+{y}")
 
-
+        # the "text area" where we insert the word we want to find
         self.entry = tk.Entry(self.top)
         self.entry.pack()
 
@@ -386,9 +424,15 @@ class FindWindow():
         tk.Button(self.top, text = "Find Next", command=self.find_next).pack()
 
     def find_next(self):
+        """Highlighting the next match and moving cursor at the end of it"""
+
+        # query : the word we are searching for
         query = self.entry.get()
+
+        # position : the position at which 'query' is found
         position = self.text.search(query, "insert", stopindex = "end")
 
+        # if position is found we highlight and move cursor, else: warning
         if position:
             end = f"{position} + {len(query)}c"
             self.text.tag_remove("highlight", "1.0", "end")
@@ -396,11 +440,19 @@ class FindWindow():
             self.text.tag_config("highlight", background="yellow")
             self.text.mark_set("insert", end)
             self.text.see(position)
+        else:
+            messagebox.showwarning("Word not found", "Word does not exist!")
 
     def find_prev(self):
+        """Highlighting the previous match and moving cursor at the beginning of it"""
+
+        # query : the word we are searching for
         query = self.entry.get()
+
+        # position : the position at which 'query' is found
         position = self.text.search(query, "insert", stopindex = "1.0", backwards = True)
 
+        # if position is found we highlight and move cursor, else: warning
         if position:
             end = f"{position} + {len(query)}c"
             self.text.tag_remove("highlight", "1.0", "end")
@@ -408,6 +460,63 @@ class FindWindow():
             self.text.tag_config("highlight", background="yellow")
             self.text.mark_set("insert", position)
             self.text.see(position)
+        else:
+            messagebox.showwarning("Word not found", "Word does not exist!")
+
+
+class CustomWindow():
+    def __init__(self, master, text_widget):
+        
+        # initiating pop up window, title, and getting text
+        self.top = tk.Toplevel(master)
+        self.top.title('Customise')
+        self.text = text_widget
+
+        # label to guide into choosing text style
+        tk.Label(self.top, text="Select style").pack()
+
+        # style_var will store the font style
+        self.style_var = tk.StringVar()
+
+        # dropdown that shows the options: normal, bold, italic styles
+        self.dropdown = ttk.Combobox(
+            self.top,
+            textvariable=self.style_var,
+            values=['Normal', 'Bold', 'Italic']
+        )
+        
+
+        self.dropdown.current(0)
+        self.dropdown.pack()
+
+        # button to apply the style changes
+        tk.Button(self.top, text="Apply", command=self.apply_style).pack()
+
+    def apply_style(self):
+        """changes font style (weight | slant)"""
+
+        # getting the text selected on dropdown
+        style = self.style_var.get()
+        # getting the current Font
+        font = tkfont.Font(font=self.text.cget("font"))
+                                
+        # checks if the selected text is bold or italic, and toggles or clears the formatting.
+        if style == "Bold":
+            if font.actual("weight") == "bold":
+                font.configure(weight="normal")
+            else:
+                font.configure(weight = "bold")
+        elif style == "Italic":
+            if font.actual("slant") == "italic":
+                font.configure(slant= "roman")
+            else:
+                font.configure(slant = "italic")
+        else:
+            # Remove formatting
+            font.configure(weight = "normal", slant="roman")
+
+        self.text.configure(font = font)
+    
 
 
 root = tk.Tk()
