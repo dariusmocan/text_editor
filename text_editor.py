@@ -492,6 +492,19 @@ class CustomWindow():
         # button to apply the style changes
         tk.Button(self.top, text="Apply", command=self.apply_style).pack()
 
+        
+        tk.Label(self.top, text= "Select size").pack()
+
+        # entry from which we take the size for the text
+        self.entry = tk.Entry(self.top)
+        self.entry.pack()
+
+        # size change
+        tk.Button(self.top, text = 'Apply size', command=self.change_size).pack()
+
+        # color change
+        tk.Button(self.top, text = "Choose Text Color", command=self.change_size).pack()
+
     def apply_style(self):
         """changes font style (weight | slant)"""
 
@@ -516,6 +529,21 @@ class CustomWindow():
             font.configure(weight = "normal", slant="roman")
 
         self.text.configure(font = font)
+
+    def change_size(self):
+        """Configurating new text size"""
+        new_size = int(self.entry.get())
+        size = tkfont.Font(font = self.text.cget("font"))
+        size.configure(size = int(new_size))
+        self.text.configure(font = size)
+
+    def choose_text_color(self):
+        """Function for selecting and configurating text color"""
+        color = colorchooser.askcolor(title= "choose text color")
+        if color[1]:
+            self.text.config(fg = color[1])
+
+
     
 
 
