@@ -312,7 +312,6 @@ class TextEditor():
             )
 
             if answer:
-                self.save_settings()
                 self.save_file()
                 self.root.destroy()
             elif answer == False:
@@ -421,32 +420,6 @@ class TextEditor():
         """Opening a window for customising"""
         CustomWindow(self.root, self.get_current_text())
 
-    def save_settings(self):
-        """Saving actual font style, size, color"""
-        text = self.get_current_text()
-
-        # geting all the text settings needed
-        font = tkfont.Font(font = text.cget("font"))
-        family = font.cget('family')
-        size = font.cget('size')
-        slant = font.cget('slant')
-        weight = font.cget('weight')
-
-        # storing the settings in a dictionary
-        current_settings = {
-            'family' : family,
-            'size' : size,
-            'weight' : weight,
-            'slant' : slant
-        }
-
-        # saving the settings in the FONT_FILE
-        try:
-            with open(FONT_FILE, "w") as f:
-                json.dump(current_settings, f, indent = 4)
-        except json.JSONDecodeError:
-            return
-
     def load_settings(self):
         """Loading and returning json file content"""
         if os.path.exists(FONT_FILE):
@@ -529,6 +502,7 @@ class CustomWindow():
         # initiating pop up window, title, and getting text
         self.top = tk.Toplevel(master)
         self.top.title('Customise')
+        self.master = master
         self.text = text_widget
 
         # setting window sizes and geometry
@@ -538,6 +512,9 @@ class CustomWindow():
         x = (screen_width // 2) - (width // 5) 
         y = 300
         self.top.geometry(f"{width}x{height}+{x}+{y}")
+
+        # saving custom settings on closing window
+        self.top.protocol("WM_DELETE_WINDOW", self.close)
 
         # label to guide into choosing text style
         tk.Label(self.top, text="Select style").pack()
@@ -551,8 +528,6 @@ class CustomWindow():
             textvariable=self.style_var,
             values=['Normal', 'Bold', 'Italic']
         )
-        
-
         self.dropdown.current(0)
         self.dropdown.pack()
 
@@ -571,7 +546,6 @@ class CustomWindow():
         size_button.pack()
 
         # get current size and insert it as default value in the size entry
-
         current_font = tkfont.Font(font = self.text.cget('font'))
         current_size = current_font.cget('size')
         self.entry.insert(0,  current_size)
@@ -616,6 +590,37 @@ class CustomWindow():
         color = colorchooser.askcolor(title= "choose text color")
         if color[1]:
             self.text.config(fg = color[1])
+
+    def close(self):
+        """On closing the window, it automatically saves changes made to font"""
+        self.save_settings()
+        self.top.destroy()
+
+    def save_settings(self):
+        """Saving actual font style, size, color"""
+
+        # geting all the text settings needed
+        font = tkfont.Font(font = self.text.cget("font"))
+        family = font.cget('family')
+        size = font.cget('size')
+        slant = font.cget('slant')
+        weight = font.cget('weight')
+
+        # storing the settings in a dictionary
+        current_settings = {
+            'family' : family,
+            'size' : size,
+            'weight' : weight,
+            'slant' : slant
+        }
+
+        # saving the settings in the FONT_FILE
+        try:
+            with open(FONT_FILE, "w") as f:
+                json.dump(current_settings, f, indent = 4)
+        except json.JSONDecodeError:
+            return
+        
 
 
 root = tk.Tk()
