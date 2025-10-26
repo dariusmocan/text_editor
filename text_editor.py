@@ -2,9 +2,11 @@ import tkinter as tk
 from tkinter import filedialog, colorchooser, ttk, messagebox
 from tkinter import *
 import tkinter.font as tkfont
-import numpy as np
+import json
+import os
 
-
+# json file in which we will store the current family, size, slant, weight changes
+FONT_FILE = "font.json"
 
 class TextEditor():
     """The main class. Representing the window of the text editor with its functionalities"""
@@ -133,8 +135,19 @@ class TextEditor():
         scrollbar = ttk.Scrollbar(frame)
         scrollbar.pack(side='right', fill='y')
 
+        # import settings or defaults
+        settings = self.load_settings()
+
+        # import the text styles
+        text_font = tkfont.Font(
+            family="Arial",
+            size = settings.get("size", 12),
+            weight= settings.get("weight", 'normal'),
+            slant= settings.get("slant", 'roman'),
+        )
+
         # text area
-        text = tk.Text(frame, wrap='word', undo = True, yscrollcommand=scrollbar.set)
+        text = tk.Text(frame, wrap='word', font = text_font, undo = True, yscrollcommand=scrollbar.set)
         text.pack(expand=True, fill='both')
         scrollbar.config(command=text.yview)
 
@@ -155,6 +168,8 @@ class TextEditor():
     def get_current_text(self):
         """Returns : the current text in our text area"""
         current_tab = self.notebook.nametowidget(self.notebook.select())
+
+        # notebook - dictionary in which keys -> frames/tabs ; values -> text widgets
         return self.tabs[current_tab]
     
     def save_file(self, event = None):
@@ -164,8 +179,10 @@ class TextEditor():
         current_text = self.get_current_text()
         # content : all the text from beginning : '1.0' to end : 'tk.END'
         content = current_text.get(1.0, tk.END)
+        # search if the current file has a saved path
         path = self.file_paths.get(current_tab)
 
+        # if it does, we just overwrite the content, else : we must save the new file
         if path:
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(content)
@@ -180,6 +197,7 @@ class TextEditor():
         """Saving a new file non existing file | saving an existing file as another file"""
         text = self.get_current_text()
         current_tab = self.notebook.nametowidget(self.notebook.select())
+        # open filedialog to save the file with a name and extention
         path = filedialog.asksaveasfilename(
             defaultextension=".txt",
             filetypes= [('Text File', '*.txt'), ('All files', '*.*')]
@@ -208,6 +226,7 @@ class TextEditor():
             defaultextension='.txt',
             filetypes=[('text files' , '*.txt'), ('All files', '*.*')]
         )
+        # if the path exists our current tab will delete its content and get the content of the opened file
         if path:
             current_tab = self.notebook.nametowidget(self.notebook.select())
             self.file_paths[current_tab] = path
@@ -228,8 +247,10 @@ class TextEditor():
         """Closes one tab of the window, verifying if there are changes made"""
         current_frame = self.notebook.nametowidget(self.notebook.select())
 
+        # we store in unsaved if there are any frames with modified texts
         unsaved = [change for frame, change in self.changed.items() if change]
 
+        # if there are we ask the user to save it, else: destory the tab
         if unsaved:
             answer = messagebox.askyesnocancel(
                 "Unsaved Changes On This Tab",
@@ -291,6 +312,7 @@ class TextEditor():
             )
 
             if answer:
+                self.save_settings()
                 self.save_file()
                 self.root.destroy()
             elif answer == False:
@@ -399,6 +421,43 @@ class TextEditor():
         """Opening a window for customising"""
         CustomWindow(self.root, self.get_current_text())
 
+    def save_settings(self):
+        """Saving actual font style, size, color"""
+        text = self.get_current_text()
+
+        # geting all the text settings needed
+        font = tkfont.Font(font = text.cget("font"))
+        family = font.cget('family')
+        size = font.cget('size')
+        slant = font.cget('slant')
+        weight = font.cget('weight')
+
+        # storing the settings in a dictionary
+        current_settings = {
+            'family' : family,
+            'size' : size,
+            'weight' : weight,
+            'slant' : slant
+        }
+
+        # saving the settings in the FONT_FILE
+        try:
+            with open(FONT_FILE, "w") as f:
+                json.dump(current_settings, f, indent = 4)
+        except json.JSONDecodeError:
+            return
+
+    def load_settings(self):
+        """Loading and returning json file content"""
+        if os.path.exists(FONT_FILE):
+            try:
+                with open(FONT_FILE, "r") as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+
+        return {}
+
 
 class FindWindow():
     """Window for the find function"""
@@ -472,6 +531,14 @@ class CustomWindow():
         self.top.title('Customise')
         self.text = text_widget
 
+        # setting window sizes and geometry
+        width = 550
+        height = 250
+        screen_width = master.winfo_screenwidth()
+        x = (screen_width // 2) - (width // 5) 
+        y = 300
+        self.top.geometry(f"{width}x{height}+{x}+{y}")
+
         # label to guide into choosing text style
         tk.Label(self.top, text="Select style").pack()
 
@@ -500,10 +567,17 @@ class CustomWindow():
         self.entry.pack()
 
         # size change
-        tk.Button(self.top, text = 'Apply size', command=self.change_size).pack()
+        size_button = tk.Button(self.top, text = 'Apply size', command=self.change_size)
+        size_button.pack()
+
+        # get current size and insert it as default value in the size entry
+
+        current_font = tkfont.Font(font = self.text.cget('font'))
+        current_size = current_font.cget('size')
+        self.entry.insert(0,  current_size)
 
         # color change
-        tk.Button(self.top, text = "Choose Text Color", command=self.change_size).pack()
+        tk.Button(self.top, text = "Choose Text Color", command=self.choose_text_color).pack()
 
     def apply_style(self):
         """changes font style (weight | slant)"""
@@ -542,9 +616,6 @@ class CustomWindow():
         color = colorchooser.askcolor(title= "choose text color")
         if color[1]:
             self.text.config(fg = color[1])
-
-
-    
 
 
 root = tk.Tk()
