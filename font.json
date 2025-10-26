@@ -1,6 +1,8 @@
 {
     "family": "Arial",
-    "size": 25,
+    "size": 26,
     "weight": "bold",
-    "slant": "italic"
+    "slant": "roman",
+    "fg_color": "#00ff80",
+    "bg_color": "#ffff80"
 }

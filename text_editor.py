@@ -118,6 +118,7 @@ class TextEditor():
         self.root.bind("<Control-Shift-W>", lambda event: self.close_window())
         self.root.bind("<Control-z>", self.undo)
         self.root.bind("<Control-y>", self.redo)
+        self.root.bind("<Control-f>", lambda event : self.find_word())
 
         # exit protocol
         self.root.protocol("WM_DELETE_WINDOW", self.close_window)
@@ -146,8 +147,14 @@ class TextEditor():
             slant= settings.get("slant", 'roman'),
         )
 
-        # text area
+        # import text and bg colors
+        fg_color = settings.get('fg_color', 'black')
+        bg_color = settings.get('bg_color', 'white')
+
+        # TEXT AREA
+        # initiating text area with font and color
         text = tk.Text(frame, wrap='word', font = text_font, undo = True, yscrollcommand=scrollbar.set)
+        text.config(fg = fg_color, bg = bg_color)
         text.pack(expand=True, fill='both')
         scrollbar.config(command=text.yview)
 
@@ -550,8 +557,11 @@ class CustomWindow():
         current_size = current_font.cget('size')
         self.entry.insert(0,  current_size)
 
-        # color change
+        # text color change
         tk.Button(self.top, text = "Choose Text Color", command=self.choose_text_color).pack()
+
+        # background color change
+        tk.Button(self.top, text = "Choose Background Color", command=self.choose_bg_color).pack()
 
     def apply_style(self):
         """changes font style (weight | slant)"""
@@ -587,12 +597,24 @@ class CustomWindow():
 
     def choose_text_color(self):
         """Function for selecting and configurating text color"""
-        color = colorchooser.askcolor(title= "choose text color")
-        if color[1]:
-            self.text.config(fg = color[1])
+        # bring the custom window to the front
+        self.top.lift()  
+
+        color = colorchooser.askcolor(parent=self.top, title="Choose text color")
+        if color and color[1]:
+            self.text.config(fg=color[1])
+
+    def choose_bg_color(self):
+        """Function for selecting and configurating background color"""
+        # keep the custom window to the front
+        self.top.lift()
+
+        color = colorchooser.askcolor(parent = self.top, title = "Choose background color")
+        if color and color[1]:
+            self.text.config(bg = color[1])
 
     def close(self):
-        """On closing the window, it automatically saves changes made to font"""
+        """Automatically saves changes made to font when closing the custom window"""
         self.save_settings()
         self.top.destroy()
 
@@ -611,7 +633,9 @@ class CustomWindow():
             'family' : family,
             'size' : size,
             'weight' : weight,
-            'slant' : slant
+            'slant' : slant,
+            'fg_color' : self.text.cget('fg'),
+            'bg_color' : self.text.cget('bg')
         }
 
         # saving the settings in the FONT_FILE
