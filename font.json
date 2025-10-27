@@ -1,8 +1,8 @@
 {
-    "family": "Arial",
+    "family": "Bodoni MT",
     "size": 26,
     "weight": "bold",
     "slant": "roman",
-    "fg_color": "#00ff80",
-    "bg_color": "#ffff80"
+    "fg_color": "#00ffff",
+    "bg_color": "#000040"
 }

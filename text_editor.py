@@ -141,7 +141,7 @@ class TextEditor():
 
         # import the text styles
         text_font = tkfont.Font(
-            family="Arial",
+            family=settings.get("family", "Arial"),
             size = settings.get("size", 12),
             weight= settings.get("weight", 'normal'),
             slant= settings.get("slant", 'roman'),
@@ -523,9 +523,30 @@ class CustomWindow():
         # saving custom settings on closing window
         self.top.protocol("WM_DELETE_WINDOW", self.close)
 
-        # label to guide into choosing text style
-        tk.Label(self.top, text="Select style").pack()
+        # TEXT FAMILY
+        tk.Label(self.top,  text = "Select font").pack()
+        # family_var will store the family name
+        self.family_var = tk.StringVar()
 
+        # dropdown for all options
+        sorted_families = sorted(tkfont.families())
+        self.family_dropdown = ttk.Combobox(
+            self.top,
+            textvariable=self.family_var,
+            values = sorted_families
+        )
+
+        # getting the current font and then family for setting default value of dropdown to that one
+        current_font = tkfont.Font(font = self.text.cget('font'))
+        current_family = current_font.cget('family')
+        self.family_dropdown.current(sorted_families.index(current_family))
+        self.family_dropdown.pack()
+        # binding the change text on selecting one
+        self.family_dropdown.bind("<<ComboboxSelected>>", self.apply_family)
+
+
+        # label to guide into choosing text style : weight/slant
+        tk.Label(self.top, text="Select style").pack()
         # style_var will store the font style
         self.style_var = tk.StringVar()
 
@@ -533,7 +554,8 @@ class CustomWindow():
         self.dropdown = ttk.Combobox(
             self.top,
             textvariable=self.style_var,
-            values=['Normal', 'Bold', 'Italic']
+            values=['Normal', 'Bold', 'Italic'],
+            state="readonly"
         )
         self.dropdown.current(0)
         self.dropdown.pack()
@@ -541,7 +563,6 @@ class CustomWindow():
         # button to apply the style changes
         tk.Button(self.top, text="Apply", command=self.apply_style).pack()
 
-        
         tk.Label(self.top, text= "Select size").pack()
 
         # entry from which we take the size for the text
@@ -553,7 +574,6 @@ class CustomWindow():
         size_button.pack()
 
         # get current size and insert it as default value in the size entry
-        current_font = tkfont.Font(font = self.text.cget('font'))
         current_size = current_font.cget('size')
         self.entry.insert(0,  current_size)
 
@@ -562,6 +582,19 @@ class CustomWindow():
 
         # background color change
         tk.Button(self.top, text = "Choose Background Color", command=self.choose_bg_color).pack()
+
+    def apply_family(self, event = None):
+        """Changes font family"""
+
+        # getting the family from our variable
+        selected_family = self.family_var.get()
+        # configuring font
+        font = tkfont.Font(font = self.text.cget("font"))
+        font.configure(family= selected_family)
+        
+        # configuring text
+        self.text.configure(font = font)
+        
 
     def apply_style(self):
         """changes font style (weight | slant)"""
@@ -646,9 +679,11 @@ class CustomWindow():
             return
         
 
+if __name__ == "__main__":
+    root = tk.Tk()
+    editor = TextEditor(root)
 
-root = tk.Tk()
-editor = TextEditor(root)
+    # print(tkfont.families())
 
-root.mainloop()
+    root.mainloop()
 
