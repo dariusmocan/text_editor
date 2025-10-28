@@ -131,21 +131,25 @@ class TextEditor():
         # exit protocol
         self.root.protocol("WM_DELETE_WINDOW", self.close_window)
 
+        # status_bar : shows which mode we are on: standard | vim (normal, insert, command)
         self.status_bar = tk.Label(
             self.root,
             text='Standard',
-            anchor='e',           # left-align so you notice it
+            anchor='e',           # right - align
             relief='sunken',
             bd=1,
             fg='white',           # contrast
-            bg='#333333'          # not pitch-black
+            bg='#333333'          
         )
         self.status_bar.pack(side='bottom', fill='x')
 
+        # we pack notebook last to not take the space of the status_bar
         self.notebook.pack(expand=True, fill='both')
 
+        # storing vim controllers
         self.vim_controllers = {}
 
+        # create tab
         self.create_tab('Untitled')
 
 
@@ -197,12 +201,14 @@ class TextEditor():
         
         self.notebook.select(frame)
 
-        # vim mode if True
+        # initiating a vimEditor
         controller = VimEditor(text, status_label = self.status_bar)
         controller.save_callback = self.save_file
+        controller.exit_callback = self.close_tab
 
         self.vim_controllers[frame] = controller
 
+        # if status == 'vim' then we go into the vim mode
         if settings.get('editor_mode', 'Standard') == 'vim':
             controller.enable()
         else:
@@ -477,6 +483,7 @@ class TextEditor():
         return {}
     
     def get_current_controller(self):
+        """return: current controller"""
         frm = self.notebook.nametowidget(self.notebook.select())
         return self.vim_controllers.get(frm)
     
