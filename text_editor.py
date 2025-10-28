@@ -4,6 +4,7 @@ from tkinter import *
 import tkinter.font as tkfont
 import json
 import os
+from vim_editor import VimEditor
 
 # json file in which we will store the current family, size, slant, weight changes
 FONT_FILE = "font.json"
@@ -29,7 +30,7 @@ class TextEditor():
 
         # notebook for tabs
         self.notebook = ttk.Notebook(root)
-        self.notebook.pack(expand=True, fill='both')
+        
         self.tabs = {}
         self.tab_counter = 1
 
@@ -39,7 +40,7 @@ class TextEditor():
         # storing changes for not exiting and losing progress
         self.changed = {}
 
-        self.create_tab('Untitled')
+        
 
         # the menu of the file in which other menus are created
         self.menu = tk.Menu(root)
@@ -108,6 +109,13 @@ class TextEditor():
         custom_menu.add_command(label="Open custom window", command=self.custom)
 
 
+        # MODE menu : standard | vim
+        mode_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label = 'Mode Menu', menu=mode_menu)
+        mode_menu.add_command(label= 'Standard', command = lambda : self.set_mode_current('Standard'))
+        mode_menu.add_command(label= 'Vim', command = lambda : self.set_mode_current('vim'))
+
+
         # root function bindings
         self.root.bind("<Control-o>", lambda event: self.load_file())
         self.root.bind("<Control-s>", lambda event: self.save_file())
@@ -122,6 +130,24 @@ class TextEditor():
 
         # exit protocol
         self.root.protocol("WM_DELETE_WINDOW", self.close_window)
+
+        self.status_bar = tk.Label(
+            self.root,
+            text='Standard',
+            anchor='e',           # left-align so you notice it
+            relief='sunken',
+            bd=1,
+            fg='white',           # contrast
+            bg='#333333'          # not pitch-black
+        )
+        self.status_bar.pack(side='bottom', fill='x')
+
+        self.notebook.pack(expand=True, fill='both')
+
+        self.vim_controllers = {}
+
+        self.create_tab('Untitled')
+
 
     def create_tab(self, title):
         """Initiating a tab"""
@@ -170,6 +196,18 @@ class TextEditor():
         text.bind("<Control-BackSpace>", lambda event: self.delete_whole_word(event))
         
         self.notebook.select(frame)
+
+        # vim mode if True
+        controller = VimEditor(text, status_label = self.status_bar)
+        controller.save_callback = self.save_file
+
+        self.vim_controllers[frame] = controller
+
+        if settings.get('editor_mode', 'Standard') == 'vim':
+            controller.enable()
+        else:
+            controller.disable()
+
         return text
         
     def get_current_text(self):
@@ -437,6 +475,23 @@ class TextEditor():
                 return {}
 
         return {}
+    
+    def get_current_controller(self):
+        frm = self.notebook.nametowidget(self.notebook.select())
+        return self.vim_controllers.get(frm)
+    
+    def set_mode_current(self, mode_value : str):
+        # getting the frame
+        current_controller = self.get_current_controller()
+        if not current_controller:
+            return
+        if mode_value == 'vim':
+            current_controller.enable()
+        else:
+            current_controller.disable()
+
+
+
 
 
 class FindWindow():
@@ -504,6 +559,7 @@ class FindWindow():
 
 
 class CustomWindow():
+    """Window for customizing the text : font family | weight | slant | size | text color |  background color"""
     def __init__(self, master, text_widget):
         
         # initiating pop up window, title, and getting text
@@ -591,7 +647,7 @@ class CustomWindow():
         # configuring font
         font = tkfont.Font(font = self.text.cget("font"))
         font.configure(family= selected_family)
-        
+
         # configuring text
         self.text.configure(font = font)
         
