@@ -198,11 +198,11 @@ class VimEditor():
                 self.cutting = False
                 self.command_buffer =''
                 self.show_status('-- NORMAL --')
-
             else:
                 self.cutting = False
                 self.command_buffer = ''
                 self.show_status('-- NORMAL --')
+                
         elif ks == 'Escape':
             self.cutting = False
             self.command_buffer = ''
@@ -217,7 +217,13 @@ class VimEditor():
     def copy_options(self, event):
         """handles copying functions in normal mode"""
         ks = event.keysym
-        # if 'dd' - delete whole line
+        char = event.char
+        
+        # ignore modifier keys
+        if ks in ['Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R']:
+            return None
+        
+        # if 'yy' - copy whole line
         if ks == 'y':
             line = self.current_line_col()[0]
             start_index = f"{line}.0"
@@ -226,7 +232,18 @@ class VimEditor():
             self.text.clipboard_clear()
             self.text.clipboard_append(selected)
 
-            # self.text.update_idletasks()
+            self.copying = False
+            self.command_buffer = ''
+            self.show_status('-- NORMAL --')
+            return "break"
+        elif char == '$':
+            line = self.current_line_col()[0]
+            # col = self.current_line_col()[1]
+            start_index = "insert"
+            end_index = f"{line}.0 lineend"
+            selected = self.text.get(start_index, end_index)
+            self.text.clipboard_clear()
+            self.text.clipboard_append(selected)
 
             self.copying = False
             self.command_buffer = ''
@@ -239,6 +256,7 @@ class VimEditor():
             return "break"
         
     def paste(self):
+        """paste text from clipboard function"""
         try:
             coppied_text = self.text.clipboard_get()
             self.text.insert("insert", coppied_text)
