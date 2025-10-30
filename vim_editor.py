@@ -5,6 +5,8 @@ class VimEditor():
         self.text = text
         self.status_label = status_label
         self.enabled = False
+        self.cutting = False
+        # self.full_command = ''
         self.mode = 'normal' # normal | insert
         self.command_buffer = ''
 
@@ -16,7 +18,7 @@ class VimEditor():
         self.text.bind("<Key>", self.on_key, add = '+')
         self.text.bind('<Escape>', self.on_escape, add = '+')
 
-    
+    # ENABLE | DISABLE : 
     def enable(self):
         """enable vim mode"""
         self.enabled = True
@@ -27,17 +29,19 @@ class VimEditor():
         self.enabled = False
         self.show_status('Standard')
     
-
+    # ENTER MODES FUNCTIONS
     def enter_normal(self):
         """enter normal mode"""
         self.mode = 'normal'
         self.show_status('-- NORMAL --')
+        self.text.config(insertontime = 700, insertofftime = 100)
 
 
     def enter_insert(self):
         """enter insert mode : 'i'"""
         self.mode = 'insert'
         self.show_status('-- INSERT --')
+        self.text.config(insertontime = 600, insertofftime = 600)
 
     def enter_command(self):
         """enter command mode : ':'"""
@@ -45,6 +49,7 @@ class VimEditor():
         self.command_buffer += ':'
         self.show_status(self.command_buffer)
 
+    # AUXILIARY FUNCTIONS : 
     def show_status(self, text: str):
         """Update the bottom status label if provided."""
         if self.status_label is None:
@@ -53,6 +58,11 @@ class VimEditor():
             self.status_label.config(text=text)
             # optional: force immediate paint
             # self.status_label.update_idletasks()
+
+    def current_line_col(self):
+        """return: current line and column index"""
+        line, col = self.text.index('insert').split('.')
+        return int(line), int(col)
 
     def on_key(self, event = tk.Event):
         """
@@ -68,6 +78,9 @@ class VimEditor():
 
         if self.mode == 'insert' or self.mode == 'command':
             return None
+        
+        if self.cutting == True:
+            self.cut_options(event)
 
         # only for normal mode
         ks = event.keysym
@@ -86,6 +99,16 @@ class VimEditor():
         if ks == 'i':
             self.enter_insert()
 
+        # deleting a character
+        if ks == 'x':
+            self.delete_char()
+
+        # cutting
+        if ks == 'd':
+            self.command_buffer += 'd'
+            self.cutting = True
+            self.show_status(self.command_buffer)
+
         # entering command mode
         if event.char == ':':
             self.enter_command()  
@@ -95,6 +118,84 @@ class VimEditor():
             return "break"
         return None
     
+    # NORMAL MODE FUNCTIONS :
+    def go_to_line_col(self, line, col):
+        """cursor navigates to a specified position"""
+
+        # max_line: the last line. line is bound to take a value between 1(first) and last line
+        max_line = int(self.text.index('end-1c').split('.')[0])
+        line = max(1, min(line, max_line))
+
+        # max_col: the last column. col is bound to take a value between 0 (first) and last col
+        max_col = int(self.text.index(f"{line}.0 lineend").split('.')[1])
+        col = max(0, min(col, max_col))
+
+        # we move cursor to the line and col
+        self.text.mark_set("insert", f"{line}.{col}")
+        self.text.see('insert')
+
+    def move_vert(self, val):
+        """move the cursor up | down"""
+        line, col = self.current_line_col()
+        # moves cursor +1 (down) or -1 (up)
+        self.go_to_line_col(line + val, col)
+
+    def move_oriz(self, val):
+        """move the cursor left | right"""
+        line, col = self.current_line_col()
+        # moves cursor -1 (left) or +1 (right)
+        self.go_to_line_col(line, col + val)
+
+    def delete_char(self, val = 0):
+        """ x : delete a single character"""
+        # position
+        index = self.text.index('insert')
+        line = index.split('.')[0]
+        # be it different than endline
+        if index != self.text.index(f"{line}.0 lineend"):
+            self.text.delete(index, f"{index} + {val + 1}c")
+
+        # return "break"
+
+    def cut_options(self, event):
+        """handle cutting options in normal mode"""
+        ks = event.keysym
+        if ks == 'd':
+            line = self.current_line_col()[0]
+            start_index = f"{line}.0"
+            end_index = f"{line}.0 lineend +1c"
+            self.text.delete(start_index, end_index)
+
+            self.cutting = False
+            self.command_buffer = ''
+            self.show_status('-- NORMAL --')
+            return "break"
+        elif ks == 'k':
+            line = self.current_line_col()[0]
+            if line > 1:
+                start_index = f"{line-1}.0"
+                end_index = f"{line}.0 lineend + 1c"
+                self.text.delete(start_index, end_index)
+
+                self.cutting = False
+                self.command_buffer =''
+                self.show_status('-- NORMAL --')
+            else:
+                self.cutting = False
+                self.command_buffer = ''
+                self.show_status('-- NORMAL --')
+        else:
+            self.cutting = False
+            self.command_buffer = ''
+            self.show_status('-- NORMAL --')
+            return "break"
+
+
+        
+
+    
+
+    # COMMAND MODE FUNCTIONS:
     def handle_command(self, event):
         """handle keys in command mode"""
         ks = event.keysym
@@ -141,42 +242,8 @@ class VimEditor():
 
         self.command_buffer = ''
 
-
-
-
-    def current_line_col(self):
-        """return: current line and column index"""
-        line, col = self.text.index('insert').split('.')
-        return int(line), int(col)
-    
-    def go_to_line_col(self, line, col):
-        """cursor navigates to another line"""
-        # max_line: the last line. line is bound to take a value between 1(first) and last line
-        max_line = int(self.text.index('end-1c').split('.')[0])
-        line = max(1, min(line, max_line))
-
-        # max_col: the last column. col is bound to take a value between 0 (first) and last col
-        max_col = int(self.text.index(f"{line}.0 lineend").split('.')[1])
-        col = max(0, min(col, max_col))
-
-        # we move cursor to the line and col
-        self.text.mark_set("insert", f"{line}.{col}")
-        self.text.see('insert')
-
-    def move_vert(self, val):
-        """move the cursor up | down"""
-        line, col = self.current_line_col()
-        # moves cursor +1 (down) or -1 (up)
-        self.go_to_line_col(line + val, col)
-
-    def move_oriz(self, val):
-        """move the cursor left | right"""
-        line, col = self.current_line_col()
-        # moves cursor -1 (left) or +1 (right)
-        self.go_to_line_col(line, col + val)
-
-
     def on_escape(self, event):
+        """Esc : return to normal mode from insert | command mode"""
         if not self.enabled:
             return None
         
