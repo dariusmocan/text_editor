@@ -6,6 +6,7 @@ class VimEditor():
         self.status_label = status_label
         self.enabled = False
         self.cutting = False
+        self.copying = False
         # self.full_command = ''
         self.mode = 'normal' # normal | insert
         self.command_buffer = ''
@@ -82,6 +83,9 @@ class VimEditor():
         if self.cutting == True:
             self.cut_options(event)
 
+        if self.copying == True:
+            self.copy_options(event)
+
         # only for normal mode
         ks = event.keysym
 
@@ -108,6 +112,16 @@ class VimEditor():
             self.command_buffer += 'd'
             self.cutting = True
             self.show_status(self.command_buffer)
+
+        # copying
+        if ks == 'y':
+            self.command_buffer += 'y'
+            self.copying = True
+            self.show_status(self.command_buffer)
+
+        # pasting
+        if ks == 'p':
+            self.paste()
 
         # entering command mode
         if event.char == ':':
@@ -158,42 +172,79 @@ class VimEditor():
         # return "break"
 
     def cut_options(self, event):
-        """handle cutting options in normal mode"""
+        """handle cutting functions in normal mode"""
         ks = event.keysym
+        # if 'dd' - delete whole line
         if ks == 'd':
             line = self.current_line_col()[0]
             start_index = f"{line}.0"
             end_index = f"{line}.0 lineend +1c"
             self.text.delete(start_index, end_index)
+            # self.text.update_idletasks()
 
             self.cutting = False
             self.command_buffer = ''
             self.show_status('-- NORMAL --')
             return "break"
+        # if dk - delete current line and above
         elif ks == 'k':
             line = self.current_line_col()[0]
             if line > 1:
                 start_index = f"{line-1}.0"
                 end_index = f"{line}.0 lineend + 1c"
                 self.text.delete(start_index, end_index)
+                # self.text.update_idletasks()
 
                 self.cutting = False
                 self.command_buffer =''
                 self.show_status('-- NORMAL --')
+
             else:
                 self.cutting = False
                 self.command_buffer = ''
                 self.show_status('-- NORMAL --')
+        elif ks == 'Escape':
+            self.cutting = False
+            self.command_buffer = ''
+            self.show_status('-- NORMAL --')
+            return "break"
         else:
             self.cutting = False
             self.command_buffer = ''
             self.show_status('-- NORMAL --')
             return "break"
-
-
         
+    def copy_options(self, event):
+        """handles copying functions in normal mode"""
+        ks = event.keysym
+        # if 'dd' - delete whole line
+        if ks == 'y':
+            line = self.current_line_col()[0]
+            start_index = f"{line}.0"
+            end_index = f"{line}.0 lineend"
+            selected = self.text.get(start_index, end_index)
+            self.text.clipboard_clear()
+            self.text.clipboard_append(selected)
 
-    
+            # self.text.update_idletasks()
+
+            self.copying = False
+            self.command_buffer = ''
+            self.show_status('-- NORMAL --')
+            return "break"
+        else:
+            self.copying = False
+            self.command_buffer =''
+            self.show_status('-- NORMAL --')
+            return "break"
+        
+    def paste(self):
+        try:
+            coppied_text = self.text.clipboard_get()
+            self.text.insert("insert", coppied_text)
+        except tk.TclError:
+            pass
+
 
     # COMMAND MODE FUNCTIONS:
     def handle_command(self, event):
