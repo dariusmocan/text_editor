@@ -64,6 +64,20 @@ class VimEditor():
         """return: current line and column index"""
         line, col = self.text.index('insert').split('.')
         return int(line), int(col)
+    
+    def undo(self):
+        """undo function"""
+        try:
+            self.text.edit_undo()
+        except tk.TclError:
+            pass
+    
+    def redo(self):
+        """redo function"""
+        try:
+            self.text.edit_redo()
+        except tk.TclError:
+            pass
 
     def on_key(self, event = tk.Event):
         """
@@ -77,7 +91,7 @@ class VimEditor():
         if self.mode == 'command':
             return self.handle_command(event)
 
-        if self.mode == 'insert' or self.mode == 'command':
+        if self.mode == 'insert':
             return None
         
         if self.cutting == True:
@@ -99,9 +113,6 @@ class VimEditor():
         if ks in ['k', 'Up']:
             self.move_vert(-1)
 
-        # entering insert mode
-        if ks == 'i':
-            self.enter_insert()
 
         # deleting a character
         if ks == 'x':
@@ -122,6 +133,16 @@ class VimEditor():
         # pasting
         if ks == 'p':
             self.paste()
+
+        # undo and redo
+        if ks == 'u':
+            self.undo()
+        if ks == 'r' and (event.state & 0x4):
+            self.redo()
+
+        # entering insert mode
+        if ks == 'i':
+            self.enter_insert()
 
         # entering command mode
         if event.char == ':':
@@ -202,7 +223,7 @@ class VimEditor():
                 self.cutting = False
                 self.command_buffer = ''
                 self.show_status('-- NORMAL --')
-                
+
         elif ks == 'Escape':
             self.cutting = False
             self.command_buffer = ''
@@ -219,7 +240,7 @@ class VimEditor():
         ks = event.keysym
         char = event.char
         
-        # ignore modifier keys
+        # ignore modifier keys (avoiding cases where: e.g. the key returned by event is 'shift' for 'y$')
         if ks in ['Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_L', 'Alt_R']:
             return None
         
@@ -236,9 +257,9 @@ class VimEditor():
             self.command_buffer = ''
             self.show_status('-- NORMAL --')
             return "break"
+        # if 'y$' - copy whole line starting from the index
         elif char == '$':
             line = self.current_line_col()[0]
-            # col = self.current_line_col()[1]
             start_index = "insert"
             end_index = f"{line}.0 lineend"
             selected = self.text.get(start_index, end_index)

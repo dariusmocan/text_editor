@@ -113,7 +113,7 @@ class TextEditor():
         mode_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label = 'Mode Menu', menu=mode_menu)
         mode_menu.add_command(label= 'Standard', command = lambda : self.set_mode_current('Standard'))
-        mode_menu.add_command(label= 'Vim', command = lambda : self.set_mode_current('vim'))
+        mode_menu.add_command(label= 'Vim', command = lambda : self.set_mode_current('Vim'))
 
 
         # root function bindings
@@ -127,6 +127,8 @@ class TextEditor():
         self.root.bind("<Control-z>", self.undo)
         self.root.bind("<Control-y>", self.redo)
         self.root.bind("<Control-f>", lambda event : self.find_word())
+        self.root.bind("<Control-m>", lambda event : self.set_mode_current('Vim'))
+        self.root.bind("<Control-Shift-M>", lambda event : self.set_mode_current('Standard'))
 
         # exit protocol
         self.root.protocol("WM_DELETE_WINDOW", self.close_window)
@@ -195,7 +197,7 @@ class TextEditor():
 
         # detect text changes
         text.bind("<<Modified>>", self.on_text_modified)
-        # other function bindings on text as Undo, Redo
+        # other function bindings on text
         text.bind("<Control-Right>", lambda event: self.move_end_word(event))
         text.bind("<Control-BackSpace>", lambda event: self.delete_whole_word(event))
         
@@ -209,7 +211,7 @@ class TextEditor():
         self.vim_controllers[frame] = controller
 
         # if status == 'vim' then we go into the vim mode
-        if settings.get('editor_mode', 'Standard') == 'vim':
+        if settings.get('editor_mode', 'Standard') == 'Vim':
             controller.enable()
         else:
             controller.disable()
@@ -492,7 +494,8 @@ class TextEditor():
         current_controller = self.get_current_controller()
         if not current_controller:
             return
-        if mode_value == 'vim':
+        if mode_value == 'Vim':
+            
             current_controller.enable()
         else:
             current_controller.disable()
@@ -749,4 +752,3 @@ if __name__ == "__main__":
     # print(tkfont.families())
 
     root.mainloop()
-
