@@ -7,15 +7,17 @@ class VimEditor():
         self.enabled = False
         self.cutting = False
         self.copying = False
+        self.last_action = None
+        self.args_last_action = None
         # self.full_command = ''
-        self.mode = 'normal' # normal | insert
+        self.mode = 'normal' # normal | insert | command
         self.command_buffer = ''
 
         # save and exit functions callback from text_editor
         self.save_callback = None
         self.exit_callback = None
 
-
+        # bind functions used for recognising commands
         self.text.bind("<Key>", self.on_key, add = '+')
         self.text.bind('<Escape>', self.on_escape, add = '+')
 
@@ -90,6 +92,23 @@ class VimEditor():
         except tk.TclError:
             pass
 
+    def delete_whole_line(self):
+        """auxiliary function for deleting an entire line"""
+        line = self.current_line_col()[0]
+        # getting the indexes of the beginning of the line and one character after the newline
+        start_index = f"{line}.0"
+        end_index = f"{line}.0 lineend +1c"
+        self.text.delete(start_index, end_index)
+        # updating cursor position
+        line = self.current_line_col()[0]
+        self.text.mark_set('insert', f"{line}.0")
+
+    def delete_line_and_above(self, line : int):
+        start_index = f"{line-1}.0"
+        end_index = f"{line}.0 lineend + 1c"
+        self.text.delete(start_index, end_index)
+        self.text.mark_set('insert',f"{start_index}")
+
     def on_key(self, event = tk.Event):
         """
         handles all normal mode vim functions
@@ -106,10 +125,10 @@ class VimEditor():
             return None
         
         if self.cutting == True:
-            self.cut_options(event)
+            return self.cut_options(event)
 
         if self.copying == True:
-            self.copy_options(event)
+            return self.copy_options(event)
 
         # only for normal mode
         ks = event.keysym
@@ -161,6 +180,10 @@ class VimEditor():
         if ks == 'o':
             self.open_line()
 
+        # repeat last action
+        if ch == '.':
+            self.repeat_last_change()
+
         # entering insert mode
         if ks == 'i':
             self.enter_insert()
@@ -208,6 +231,7 @@ class VimEditor():
         line_end = self.text.index(f"{line}.0 lineend+1c")
         self.text.insert(line_end, '\n')
         self.text.mark_set('insert', f"{line + 1}.0")
+        self.last_action = self.open_line
         self.enter_insert()
 
     def delete_char(self, val = 0):
@@ -218,20 +242,17 @@ class VimEditor():
         # be it different than endline
         if index != self.text.index(f"{line}.0 lineend"):
             self.text.delete(index, f"{index} + {val + 1}c")
-
-        # return "break"
+            self.last_action = self.delete_char
 
     def cut_options(self, event):
         """d : handle cutting functions in normal mode"""
         ks = event.keysym
         # if 'dd' - delete whole line
         if ks == 'd':
-            line = self.current_line_col()[0]
-            start_index = f"{line}.0"
-            end_index = f"{line}.0 lineend +1c"
-            self.text.delete(start_index, end_index)
-            # self.text.update_idletasks()
-
+            # calling function for deleting the line
+            self.delete_whole_line()
+            # set last action to deleting an entire line
+            self.last_action = self.delete_whole_line
             self.cutting = False
             self.command_buffer = ''
             self.show_status('-- NORMAL --')
@@ -239,35 +260,37 @@ class VimEditor():
         # if dk - delete current line and above
         elif ks == 'k':
             line = self.current_line_col()[0]
+            # if the cursor is on a line > 2nd : delete line and above
             if line > 1:
-                start_index = f"{line-1}.0"
-                end_index = f"{line}.0 lineend + 1c"
-                self.text.delete(start_index, end_index)
-                self.text.mark_set('index')
-                # self.text.update_idletasks()
+                self.delete_line_and_above(line)
 
+                # self.last_action = self.delete_line_and_above
                 self.cutting = False
                 self.command_buffer =''
                 self.show_status('-- NORMAL --')
+                return "break"
+            # else : don't delete anything +> exit back to NORMAL mode
             else:
                 self.cutting = False
                 self.command_buffer = ''
                 self.show_status('-- NORMAL --')
+                return "break"
         # deleting behind cursor
         elif ks == 'h' or ks == 'Shift':
             index = self.text.index('insert')
             col = self.current_line_col()[1]
             if col > 0:
                 self.text.delete(f"{index} - 1c", f"{index}")
-                self.text.mark_set('insert', 'insert +1c')
 
                 self.cutting = False
                 self.command_buffer =''
                 self.show_status('-- NORMAL --')
+                return "break"
             else:
                 self.cutting = False
                 self.command_buffer =''
                 self.show_status('-- NORMAL --')
+                return "break"
         # exiting d cut options
         elif ks == 'Escape':
             self.cutting = False
@@ -292,7 +315,7 @@ class VimEditor():
         # if 'yy' - copy whole line
         if ks == 'y':
             line = self.current_line_col()[0]
-            start_index = f"{line}.0"
+            start_index = f"{line}.0 - 1c"
             end_index = f"{line}.0 lineend"
             selected = self.text.get(start_index, end_index)
             self.text.clipboard_clear()
@@ -326,8 +349,19 @@ class VimEditor():
         try:
             coppied_text = self.text.clipboard_get()
             self.text.insert("insert", coppied_text)
+            self.last_action = self.paste
         except tk.TclError:
             pass
+
+    def repeat_last_change(self):
+        """'.' : repeat the last change such as commands 'x' or 'dd'"""
+        if self.last_action:
+            if self.args_last_action:
+                self.last_action(self.args_last_action)
+            else:
+                self.last_action()
+        else:
+            "break"
 
 
     # COMMAND MODE FUNCTIONS:
@@ -387,3 +421,20 @@ class VimEditor():
             self.enter_normal()
             return "break"
         return "break"
+    
+
+
+# implemented functions so far:
+# NORMAL MODE: -navigating (h,j,k,l);
+#              -deleting one character (x)
+#              -cutting options (dd, dk, dh)
+#              -copying options (yy, y$) - gotta make yy always create another line
+#              -pasting (P)
+#              -open line and change to insert mode (o)
+#              -repeat last change (.) 
+
+# INSERT MODE: 
+
+# COMMAND MODE: -saving the file (:w)
+#               -exiting the file (:q)
+#               -save and exit (:wq)
