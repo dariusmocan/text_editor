@@ -65,6 +65,17 @@ class VimEditor():
         line, col = self.text.index('insert').split('.')
         return int(line), int(col)
     
+    def jump_start_line(self):
+        """0 : jump to the start of the line"""
+        line = self.current_line_col()[0]
+        self.text.mark_set('insert', f"{line}.0")
+        # return "break"
+
+    def jump_end_line(self):
+        """$ : jump to the end of the line"""
+        line= self.current_line_col()[0]
+        self.text.mark_set('insert', f"{line}.0 lineend-1c")
+    
     def undo(self):
         """undo function"""
         try:
@@ -102,6 +113,7 @@ class VimEditor():
 
         # only for normal mode
         ks = event.keysym
+        ch = event.char
 
         # navigating in normal mode
         if ks in ['h', 'Left']:
@@ -112,6 +124,10 @@ class VimEditor():
             self.move_vert(+1)
         if ks in ['k', 'Up']:
             self.move_vert(-1)
+        if ks == '0':
+            self.jump_start_line()
+        if ch == '$':
+            self.jump_end_line()
 
 
         # deleting a character
@@ -137,8 +153,13 @@ class VimEditor():
         # undo and redo
         if ks == 'u':
             self.undo()
+        # event state fot Control = 0x4
         if ks == 'r' and (event.state & 0x4):
             self.redo()
+
+        # open line and enter insert mode
+        if ks == 'o':
+            self.open_line()
 
         # entering insert mode
         if ks == 'i':
@@ -181,6 +202,14 @@ class VimEditor():
         # moves cursor -1 (left) or +1 (right)
         self.go_to_line_col(line, col + val)
 
+    def open_line(self):
+        """o : opens line and changes to insert mode"""
+        line = self.current_line_col()[0]
+        line_end = self.text.index(f"{line}.0 lineend+1c")
+        self.text.insert(line_end, '\n')
+        self.text.mark_set('insert', f"{line + 1}.0")
+        self.enter_insert()
+
     def delete_char(self, val = 0):
         """ x : delete a single character"""
         # position
@@ -193,7 +222,7 @@ class VimEditor():
         # return "break"
 
     def cut_options(self, event):
-        """handle cutting functions in normal mode"""
+        """d : handle cutting functions in normal mode"""
         ks = event.keysym
         # if 'dd' - delete whole line
         if ks == 'd':
@@ -214,6 +243,7 @@ class VimEditor():
                 start_index = f"{line-1}.0"
                 end_index = f"{line}.0 lineend + 1c"
                 self.text.delete(start_index, end_index)
+                self.text.mark_set('index')
                 # self.text.update_idletasks()
 
                 self.cutting = False
@@ -223,7 +253,22 @@ class VimEditor():
                 self.cutting = False
                 self.command_buffer = ''
                 self.show_status('-- NORMAL --')
+        # deleting behind cursor
+        elif ks == 'h' or ks == 'Shift':
+            index = self.text.index('insert')
+            col = self.current_line_col()[1]
+            if col > 0:
+                self.text.delete(f"{index} - 1c", f"{index}")
+                self.text.mark_set('insert', 'insert +1c')
 
+                self.cutting = False
+                self.command_buffer =''
+                self.show_status('-- NORMAL --')
+            else:
+                self.cutting = False
+                self.command_buffer =''
+                self.show_status('-- NORMAL --')
+        # exiting d cut options
         elif ks == 'Escape':
             self.cutting = False
             self.command_buffer = ''
@@ -236,7 +281,7 @@ class VimEditor():
             return "break"
         
     def copy_options(self, event):
-        """handles copying functions in normal mode"""
+        """y : handles copying functions in normal mode"""
         ks = event.keysym
         char = event.char
         
@@ -277,7 +322,7 @@ class VimEditor():
             return "break"
         
     def paste(self):
-        """paste text from clipboard function"""
+        """p : paste text from clipboard function"""
         try:
             coppied_text = self.text.clipboard_get()
             self.text.insert("insert", coppied_text)
