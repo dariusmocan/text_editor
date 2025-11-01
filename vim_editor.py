@@ -7,6 +7,7 @@ class VimEditor():
         self.enabled = False
         self.cutting = False
         self.copying = False
+        self.whole_line_copied = False
         self.last_action = None
         self.args_last_action = None
         # self.full_command = ''
@@ -103,11 +104,33 @@ class VimEditor():
         line = self.current_line_col()[0]
         self.text.mark_set('insert', f"{line}.0")
 
-    def delete_line_and_above(self, line : int):
+    def delete_line_and_above(self):
+        """auxiliary function for deleting a line and above"""
+        line = self.current_line_col()[0]
         start_index = f"{line-1}.0"
         end_index = f"{line}.0 lineend + 1c"
         self.text.delete(start_index, end_index)
         self.text.mark_set('insert',f"{start_index}")
+
+    def exit_cut_options(self):
+        """
+        updates cutting variable so the following keys no longer enter cut_options
+        resets command_buffer
+        updates status_label
+        """
+        self.cutting = False
+        self.command_buffer = ''
+        self.show_status('-- NORMAL --')
+
+    def exit_copy_options(self):
+        """
+        updates cutting variable so the following keys no longer enter cut_options
+        resets command_buffer
+        updates status_label
+        """
+        self.copying = False
+        self.command_buffer = ''
+        self.show_status('-- NORMAL --')
 
     def on_key(self, event = tk.Event):
         """
@@ -253,27 +276,23 @@ class VimEditor():
             self.delete_whole_line()
             # set last action to deleting an entire line
             self.last_action = self.delete_whole_line
-            self.cutting = False
-            self.command_buffer = ''
-            self.show_status('-- NORMAL --')
+
+            # leaving cut_options, command_buffer and status_label update 
+            self.exit_cut_options()
             return "break"
         # if dk - delete current line and above
         elif ks == 'k':
             line = self.current_line_col()[0]
             # if the cursor is on a line > 2nd : delete line and above
             if line > 1:
-                self.delete_line_and_above(line)
+                self.delete_line_and_above()
 
-                # self.last_action = self.delete_line_and_above
-                self.cutting = False
-                self.command_buffer =''
-                self.show_status('-- NORMAL --')
+                self.last_action = self.delete_line_and_above
+                self.exit_cut_options()
                 return "break"
-            # else : don't delete anything +> exit back to NORMAL mode
+            # else : don't delete anything -> exit back to NORMAL mode
             else:
-                self.cutting = False
-                self.command_buffer = ''
-                self.show_status('-- NORMAL --')
+                self.exit_cut_options()
                 return "break"
         # deleting behind cursor
         elif ks == 'h' or ks == 'Shift':
@@ -282,25 +301,17 @@ class VimEditor():
             if col > 0:
                 self.text.delete(f"{index} - 1c", f"{index}")
 
-                self.cutting = False
-                self.command_buffer =''
-                self.show_status('-- NORMAL --')
+                self.exit_cut_options()
                 return "break"
             else:
-                self.cutting = False
-                self.command_buffer =''
-                self.show_status('-- NORMAL --')
+                self.exit_cut_options()
                 return "break"
         # exiting d cut options
         elif ks == 'Escape':
-            self.cutting = False
-            self.command_buffer = ''
-            self.show_status('-- NORMAL --')
+            self.exit_cut_options()
             return "break"
         else:
-            self.cutting = False
-            self.command_buffer = ''
-            self.show_status('-- NORMAL --')
+            self.exit_cut_options()
             return "break"
         
     def copy_options(self, event):
@@ -315,15 +326,14 @@ class VimEditor():
         # if 'yy' - copy whole line
         if ks == 'y':
             line = self.current_line_col()[0]
-            start_index = f"{line}.0 - 1c"
+            start_index = f"{line}.0"
             end_index = f"{line}.0 lineend"
             selected = self.text.get(start_index, end_index)
             self.text.clipboard_clear()
             self.text.clipboard_append(selected)
+            self.whole_line_copied = True
 
-            self.copying = False
-            self.command_buffer = ''
-            self.show_status('-- NORMAL --')
+            self.exit_copy_options()
             return "break"
         # if 'y$' - copy whole line starting from the index
         elif char == '$':
@@ -333,22 +343,25 @@ class VimEditor():
             selected = self.text.get(start_index, end_index)
             self.text.clipboard_clear()
             self.text.clipboard_append(selected)
+            self.whole_line_copied = False
 
-            self.copying = False
-            self.command_buffer = ''
-            self.show_status('-- NORMAL --')
+            self.exit_copy_options()
             return "break"
         else:
-            self.copying = False
-            self.command_buffer =''
-            self.show_status('-- NORMAL --')
+            self.exit_copy_options()
             return "break"
         
     def paste(self):
         """p : paste text from clipboard function"""
         try:
             coppied_text = self.text.clipboard_get()
-            self.text.insert("insert", coppied_text)
+            if self.whole_line_copied:
+                line = self.current_line_col()[0]
+                line_end = self.text.index(f"{line}.0 lineend")
+                self.text.insert(line_end, '\n' + coppied_text)
+            else:
+                self.text.insert('insert', coppied_text)
+            # saving last action    
             self.last_action = self.paste
         except tk.TclError:
             pass

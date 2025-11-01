@@ -188,6 +188,7 @@ class TextEditor():
         text = tk.Text(frame, wrap='word', font = text_font, undo = True, yscrollcommand=scrollbar.set)
         text.config(fg = fg_color, bg = bg_color)
         text.pack(expand=True, fill='both')
+        text.focus_set()
         scrollbar.config(command=text.yview)
 
         # initiating the changes, tabs and paths
